@@ -1,0 +1,653 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+             targetNamespace="http://bpmn.io/schema/bpmn"
+             id="Definitions_SitPay"
+             name="Sitpay Gift Card Interface — XV POS">
+
+  <!-- ═══════════════════════════════════════════════
+       COLLABORATION
+  ═══════════════════════════════════════════════ -->
+  <collaboration id="Collaboration_SitPay">
+    <participant id="Participant_XVPOS"    name="XV POS (Galeria)"       processRef="Process_XVPOS"/>
+    <participant id="Participant_GiftAPI"  name="Gift Card API / CPI"    processRef="Process_GiftAPI"/>
+    <participant id="Participant_SitPay"   name="SIT-Pay"                processRef="Process_SitPay"/>
+
+    <!-- UC1: Activate — Inquiry -->
+    <messageFlow id="MF_InquiryOut"   sourceRef="Task_InquirySend"   targetRef="Task_InquiryReceive"/>
+    <messageFlow id="MF_InquiryBack"  sourceRef="Task_InquiryResp"   targetRef="Task_InquiryRespRec"/>
+
+    <!-- UC1: Activate — Charge -->
+    <messageFlow id="MF_ChargeOut"    sourceRef="Task_ChargeSend"    targetRef="Task_ChargeReceive"/>
+    <messageFlow id="MF_ChargeBack"   sourceRef="Task_ChargeResp"    targetRef="Task_ChargeRespRec"/>
+
+    <!-- UC2: Payment — Inquiry -->
+    <messageFlow id="MF_PayInqOut"    sourceRef="Task_PayInqSend"    targetRef="Task_PayInqReceive"/>
+    <messageFlow id="MF_PayInqBack"   sourceRef="Task_PayInqResp"    targetRef="Task_PayInqRespRec"/>
+
+    <!-- UC2: Payment — Redeem -->
+    <messageFlow id="MF_RedeemOut"    sourceRef="Task_RedeemSend"    targetRef="Task_RedeemReceive"/>
+    <messageFlow id="MF_RedeemBack"   sourceRef="Task_RedeemResp"    targetRef="Task_RedeemRespRec"/>
+
+    <!-- UC3: Cancel Payment — UndoRedeem -->
+    <messageFlow id="MF_UndoOut"      sourceRef="Task_UndoRedeemSend"  targetRef="Task_UndoRedeemReceive"/>
+    <messageFlow id="MF_UndoBack"     sourceRef="Task_UndoRedeemResp"  targetRef="Task_UndoRedeemRespRec"/>
+
+    <!-- UC4: Balance Check -->
+    <messageFlow id="MF_BalOut"       sourceRef="Task_BalInqSend"    targetRef="Task_BalInqReceive"/>
+    <messageFlow id="MF_BalBack"      sourceRef="Task_BalInqResp"    targetRef="Task_BalInqRespRec"/>
+
+    <!-- EOD Batch -->
+    <messageFlow id="MF_EODOut"       sourceRef="Task_EODSend"       targetRef="Task_EODReceive"/>
+  </collaboration>
+
+  <!-- ═══════════════════════════════════════════════
+       POOL 1: XV POS
+  ═══════════════════════════════════════════════ -->
+  <process id="Process_XVPOS" name="XV POS" isExecutable="false">
+    <laneSet id="LaneSet_POS">
+
+      <!-- Lane: Cashier -->
+      <lane id="Lane_Cashier" name="Cashier">
+        <flowNodeRef>Start_Activate</flowNodeRef>
+        <flowNodeRef>Task_ScanActivate</flowNodeRef>
+        <flowNodeRef>Task_InquirySend</flowNodeRef>
+        <flowNodeRef>Task_InquiryRespRec</flowNodeRef>
+        <flowNodeRef>Task_AddAmount</flowNodeRef>
+        <flowNodeRef>Task_ChargeSend</flowNodeRef>
+        <flowNodeRef>Task_ChargeRespRec</flowNodeRef>
+        <flowNodeRef>End_Activate</flowNodeRef>
+
+        <flowNodeRef>Start_Payment</flowNodeRef>
+        <flowNodeRef>Task_AddArticles</flowNodeRef>
+        <flowNodeRef>Task_SelectGiftCard</flowNodeRef>
+        <flowNodeRef>Task_ScanPayCard</flowNodeRef>
+        <flowNodeRef>Task_PayInqSend</flowNodeRef>
+        <flowNodeRef>Task_PayInqRespRec</flowNodeRef>
+        <flowNodeRef>Task_RedeemSend</flowNodeRef>
+        <flowNodeRef>Task_RedeemRespRec</flowNodeRef>
+        <flowNodeRef>Gateway_CancelPayment</flowNodeRef>
+        <flowNodeRef>Task_UndoRedeemSend</flowNodeRef>
+        <flowNodeRef>Task_UndoRedeemRespRec</flowNodeRef>
+        <flowNodeRef>Task_SelectOtherPayment</flowNodeRef>
+        <flowNodeRef>Task_FinalizePayment</flowNodeRef>
+        <flowNodeRef>End_Payment</flowNodeRef>
+
+        <flowNodeRef>Start_BalCheck</flowNodeRef>
+        <flowNodeRef>Task_ScanBalCard</flowNodeRef>
+        <flowNodeRef>Task_BalInqSend</flowNodeRef>
+        <flowNodeRef>Task_BalInqRespRec</flowNodeRef>
+        <flowNodeRef>Task_ShowBalance</flowNodeRef>
+        <flowNodeRef>End_BalCheck</flowNodeRef>
+      </lane>
+
+      <!-- Lane: System (EOD) -->
+      <lane id="Lane_System" name="POS System (EOD)">
+        <flowNodeRef>Start_EOD</flowNodeRef>
+        <flowNodeRef>Task_EODSend</flowNodeRef>
+        <flowNodeRef>End_EOD</flowNodeRef>
+      </lane>
+
+    </laneSet>
+
+    <!-- ── UC1: ACTIVATE ── -->
+    <startEvent id="Start_Activate" name="Gift card&#10;activation requested">
+      <outgoing>Flow_A1</outgoing>
+    </startEvent>
+    <task id="Task_ScanActivate" name="Scan gift card&#10;to activate">
+      <incoming>Flow_A1</incoming>
+      <outgoing>Flow_A2</outgoing>
+    </task>
+    <task id="Task_InquirySend" name="Send Inquiry&#10;(Gift Card API)">
+      <incoming>Flow_A2</incoming>
+      <outgoing>Flow_A3</outgoing>
+    </task>
+    <task id="Task_InquiryRespRec" name="Receive inquiry&#10;response">
+      <incoming>Flow_A3</incoming>
+      <outgoing>Flow_A4</outgoing>
+    </task>
+    <task id="Task_AddAmount" name="Add amount&#10;to gift card">
+      <incoming>Flow_A4</incoming>
+      <outgoing>Flow_A5</outgoing>
+    </task>
+    <task id="Task_ChargeSend" name="Send Activate /&#10;Charge (Gift Card API)">
+      <incoming>Flow_A5</incoming>
+      <outgoing>Flow_A6</outgoing>
+    </task>
+    <task id="Task_ChargeRespRec" name="Receive activation&#10;confirmation">
+      <incoming>Flow_A6</incoming>
+      <outgoing>Flow_A7</outgoing>
+    </task>
+    <endEvent id="End_Activate" name="Gift card activated">
+      <incoming>Flow_A7</incoming>
+    </endEvent>
+
+    <sequenceFlow id="Flow_A1" sourceRef="Start_Activate"     targetRef="Task_ScanActivate"/>
+    <sequenceFlow id="Flow_A2" sourceRef="Task_ScanActivate"  targetRef="Task_InquirySend"/>
+    <sequenceFlow id="Flow_A3" sourceRef="Task_InquirySend"   targetRef="Task_InquiryRespRec"/>
+    <sequenceFlow id="Flow_A4" sourceRef="Task_InquiryRespRec" targetRef="Task_AddAmount"/>
+    <sequenceFlow id="Flow_A5" sourceRef="Task_AddAmount"     targetRef="Task_ChargeSend"/>
+    <sequenceFlow id="Flow_A6" sourceRef="Task_ChargeSend"    targetRef="Task_ChargeRespRec"/>
+    <sequenceFlow id="Flow_A7" sourceRef="Task_ChargeRespRec" targetRef="End_Activate"/>
+
+    <!-- ── UC2 + UC3: PAYMENT + CANCEL ── -->
+    <startEvent id="Start_Payment" name="Payment with&#10;gift card initiated">
+      <outgoing>Flow_P1</outgoing>
+    </startEvent>
+    <task id="Task_AddArticles" name="Add articles&#10;to transaction">
+      <incoming>Flow_P1</incoming>
+      <outgoing>Flow_P2</outgoing>
+    </task>
+    <task id="Task_SelectGiftCard" name="Select gift card&#10;as payment type">
+      <incoming>Flow_P2</incoming>
+      <outgoing>Flow_P3</outgoing>
+    </task>
+    <task id="Task_ScanPayCard" name="Scan gift card">
+      <incoming>Flow_P3</incoming>
+      <outgoing>Flow_P4</outgoing>
+    </task>
+    <task id="Task_PayInqSend" name="Send Inquiry&#10;(balance check)">
+      <incoming>Flow_P4</incoming>
+      <outgoing>Flow_P5</outgoing>
+    </task>
+    <task id="Task_PayInqRespRec" name="Receive balance&#10;response">
+      <incoming>Flow_P5</incoming>
+      <outgoing>Flow_P6</outgoing>
+    </task>
+    <task id="Task_RedeemSend" name="Send Redeem&#10;(Gift Card API: Pay)">
+      <incoming>Flow_P6</incoming>
+      <outgoing>Flow_P7</outgoing>
+    </task>
+    <task id="Task_RedeemRespRec" name="Receive redemption&#10;confirmation">
+      <incoming>Flow_P7</incoming>
+      <outgoing>Flow_P8</outgoing>
+    </task>
+    <exclusiveGateway id="Gateway_CancelPayment" name="Customer cancels&#10;payment?">
+      <incoming>Flow_P8</incoming>
+      <outgoing>Flow_P9_cancel</outgoing>
+      <outgoing>Flow_P9_ok</outgoing>
+    </exclusiveGateway>
+    <!-- Cancel path -->
+    <task id="Task_UndoRedeemSend" name="Send UndoRedeem&#10;(cancel payment)">
+      <incoming>Flow_P9_cancel</incoming>
+      <outgoing>Flow_P10</outgoing>
+    </task>
+    <task id="Task_UndoRedeemRespRec" name="Receive cancel&#10;confirmation">
+      <incoming>Flow_P10</incoming>
+      <outgoing>Flow_P11</outgoing>
+    </task>
+    <task id="Task_SelectOtherPayment" name="Select other&#10;payment method">
+      <incoming>Flow_P11</incoming>
+      <outgoing>Flow_P12</outgoing>
+    </task>
+    <!-- Happy path join -->
+    <task id="Task_FinalizePayment" name="Finalize&#10;transaction">
+      <incoming>Flow_P9_ok</incoming>
+      <incoming>Flow_P12</incoming>
+      <outgoing>Flow_P13</outgoing>
+    </task>
+    <endEvent id="End_Payment" name="Transaction&#10;completed">
+      <incoming>Flow_P13</incoming>
+    </endEvent>
+
+    <sequenceFlow id="Flow_P1"        sourceRef="Start_Payment"          targetRef="Task_AddArticles"/>
+    <sequenceFlow id="Flow_P2"        sourceRef="Task_AddArticles"        targetRef="Task_SelectGiftCard"/>
+    <sequenceFlow id="Flow_P3"        sourceRef="Task_SelectGiftCard"     targetRef="Task_ScanPayCard"/>
+    <sequenceFlow id="Flow_P4"        sourceRef="Task_ScanPayCard"        targetRef="Task_PayInqSend"/>
+    <sequenceFlow id="Flow_P5"        sourceRef="Task_PayInqSend"         targetRef="Task_PayInqRespRec"/>
+    <sequenceFlow id="Flow_P6"        sourceRef="Task_PayInqRespRec"      targetRef="Task_RedeemSend"/>
+    <sequenceFlow id="Flow_P7"        sourceRef="Task_RedeemSend"         targetRef="Task_RedeemRespRec"/>
+    <sequenceFlow id="Flow_P8"        sourceRef="Task_RedeemRespRec"      targetRef="Gateway_CancelPayment"/>
+    <sequenceFlow id="Flow_P9_cancel" name="Yes" sourceRef="Gateway_CancelPayment" targetRef="Task_UndoRedeemSend"/>
+    <sequenceFlow id="Flow_P9_ok"     name="No"  sourceRef="Gateway_CancelPayment" targetRef="Task_FinalizePayment"/>
+    <sequenceFlow id="Flow_P10"       sourceRef="Task_UndoRedeemSend"     targetRef="Task_UndoRedeemRespRec"/>
+    <sequenceFlow id="Flow_P11"       sourceRef="Task_UndoRedeemRespRec"  targetRef="Task_SelectOtherPayment"/>
+    <sequenceFlow id="Flow_P12"       sourceRef="Task_SelectOtherPayment" targetRef="Task_FinalizePayment"/>
+    <sequenceFlow id="Flow_P13"       sourceRef="Task_FinalizePayment"    targetRef="End_Payment"/>
+
+    <!-- ── UC4: BALANCE CHECK ── -->
+    <startEvent id="Start_BalCheck" name="Balance check&#10;requested">
+      <outgoing>Flow_B1</outgoing>
+    </startEvent>
+    <task id="Task_ScanBalCard" name="Scan gift card&#10;to check">
+      <incoming>Flow_B1</incoming>
+      <outgoing>Flow_B2</outgoing>
+    </task>
+    <task id="Task_BalInqSend" name="Send Inquiry&#10;(Gift Card API)">
+      <incoming>Flow_B2</incoming>
+      <outgoing>Flow_B3</outgoing>
+    </task>
+    <task id="Task_BalInqRespRec" name="Receive balance&#10;response">
+      <incoming>Flow_B3</incoming>
+      <outgoing>Flow_B4</outgoing>
+    </task>
+    <task id="Task_ShowBalance" name="Display balance&#10;on POS screen">
+      <incoming>Flow_B4</incoming>
+      <outgoing>Flow_B5</outgoing>
+    </task>
+    <endEvent id="End_BalCheck" name="Balance shown">
+      <incoming>Flow_B5</incoming>
+    </endEvent>
+
+    <sequenceFlow id="Flow_B1" sourceRef="Start_BalCheck"   targetRef="Task_ScanBalCard"/>
+    <sequenceFlow id="Flow_B2" sourceRef="Task_ScanBalCard" targetRef="Task_BalInqSend"/>
+    <sequenceFlow id="Flow_B3" sourceRef="Task_BalInqSend"  targetRef="Task_BalInqRespRec"/>
+    <sequenceFlow id="Flow_B4" sourceRef="Task_BalInqRespRec" targetRef="Task_ShowBalance"/>
+    <sequenceFlow id="Flow_B5" sourceRef="Task_ShowBalance" targetRef="End_BalCheck"/>
+
+    <!-- ── EOD BATCH ── -->
+    <startEvent id="Start_EOD" name="End of day&#10;triggered">
+      <outgoing>Flow_E1</outgoing>
+    </startEvent>
+    <task id="Task_EODSend" name="Send daily transaction&#10;data to CAR / SIT-Pay">
+      <incoming>Flow_E1</incoming>
+      <outgoing>Flow_E2</outgoing>
+    </task>
+    <endEvent id="End_EOD" name="EOD batch&#10;completed">
+      <incoming>Flow_E2</incoming>
+    </endEvent>
+
+    <sequenceFlow id="Flow_E1" sourceRef="Start_EOD"    targetRef="Task_EODSend"/>
+    <sequenceFlow id="Flow_E2" sourceRef="Task_EODSend" targetRef="End_EOD"/>
+  </process>
+
+  <!-- ═══════════════════════════════════════════════
+       POOL 2: Gift Card API / CPI
+  ═══════════════════════════════════════════════ -->
+  <process id="Process_GiftAPI" name="Gift Card API / CPI" isExecutable="false">
+
+    <!-- Activate: receive inquiry -->
+    <receiveTask id="Task_InquiryReceive" name="Receive Inquiry&#10;from XV POS">
+      <outgoing>Flow_G1</outgoing>
+    </receiveTask>
+    <sendTask id="Task_InquiryResp" name="Forward Inquiry&#10;to SIT-Pay">
+      <incoming>Flow_G1</incoming>
+    </sendTask>
+
+    <!-- Activate: charge -->
+    <receiveTask id="Task_ChargeReceive" name="Receive Activate /&#10;Charge request">
+      <outgoing>Flow_G2</outgoing>
+    </receiveTask>
+    <sendTask id="Task_ChargeResp" name="Forward Charge&#10;to SIT-Pay">
+      <incoming>Flow_G2</incoming>
+    </sendTask>
+
+    <!-- Payment: inquiry -->
+    <receiveTask id="Task_PayInqReceive" name="Receive Payment&#10;Inquiry">
+      <outgoing>Flow_G3</outgoing>
+    </receiveTask>
+    <sendTask id="Task_PayInqResp" name="Forward Inquiry&#10;to SIT-Pay">
+      <incoming>Flow_G3</incoming>
+    </sendTask>
+
+    <!-- Payment: redeem -->
+    <receiveTask id="Task_RedeemReceive" name="Receive Redeem&#10;request">
+      <outgoing>Flow_G4</outgoing>
+    </receiveTask>
+    <sendTask id="Task_RedeemResp" name="Forward Redeem&#10;to SIT-Pay">
+      <incoming>Flow_G4</incoming>
+    </sendTask>
+
+    <!-- Cancel: UndoRedeem -->
+    <receiveTask id="Task_UndoRedeemReceive" name="Receive UndoRedeem&#10;request">
+      <outgoing>Flow_G5</outgoing>
+    </receiveTask>
+    <sendTask id="Task_UndoRedeemResp" name="Forward Cancel&#10;to SIT-Pay">
+      <incoming>Flow_G5</incoming>
+    </sendTask>
+
+    <!-- Balance check -->
+    <receiveTask id="Task_BalInqReceive" name="Receive Balance&#10;Inquiry">
+      <outgoing>Flow_G6</outgoing>
+    </receiveTask>
+    <sendTask id="Task_BalInqResp" name="Forward Balance&#10;Inquiry to SIT-Pay">
+      <incoming>Flow_G6</incoming>
+    </sendTask>
+
+    <!-- EOD -->
+    <receiveTask id="Task_EODReceive" name="Receive EOD&#10;batch data">
+    </receiveTask>
+
+    <sequenceFlow id="Flow_G1" sourceRef="Task_InquiryReceive"    targetRef="Task_InquiryResp"/>
+    <sequenceFlow id="Flow_G2" sourceRef="Task_ChargeReceive"     targetRef="Task_ChargeResp"/>
+    <sequenceFlow id="Flow_G3" sourceRef="Task_PayInqReceive"     targetRef="Task_PayInqResp"/>
+    <sequenceFlow id="Flow_G4" sourceRef="Task_RedeemReceive"     targetRef="Task_RedeemResp"/>
+    <sequenceFlow id="Flow_G5" sourceRef="Task_UndoRedeemReceive" targetRef="Task_UndoRedeemResp"/>
+    <sequenceFlow id="Flow_G6" sourceRef="Task_BalInqReceive"     targetRef="Task_BalInqResp"/>
+  </process>
+
+  <!-- ═══════════════════════════════════════════════
+       POOL 3: SIT-Pay
+  ═══════════════════════════════════════════════ -->
+  <process id="Process_SitPay" name="SIT-Pay" isExecutable="false">
+    <laneSet id="LaneSet_SP">
+      <lane id="Lane_Accounts" name="Accounts (Read)">
+        <flowNodeRef>Task_SP_InquiryProcess</flowNodeRef>
+        <flowNodeRef>Task_SP_BalProcess</flowNodeRef>
+      </lane>
+      <lane id="Lane_Transactions" name="Transactions (Create / Cancel)">
+        <flowNodeRef>Task_SP_ChargeProcess</flowNodeRef>
+        <flowNodeRef>Task_SP_RedeemProcess</flowNodeRef>
+        <flowNodeRef>Task_SP_CancelProcess</flowNodeRef>
+      </lane>
+    </laneSet>
+
+    <task id="Task_SP_InquiryProcess" name="Read account /&#10;validate card status">
+    </task>
+    <task id="Task_SP_BalProcess" name="Read balance&#10;and return">
+    </task>
+    <task id="Task_SP_ChargeProcess" name="Create transaction:&#10;CHARGE (activate)">
+    </task>
+    <task id="Task_SP_RedeemProcess" name="Create transaction:&#10;REDEEM (payment)">
+    </task>
+    <task id="Task_SP_CancelProcess" name="Cancel transaction:&#10;UndoRedeem">
+    </task>
+  </process>
+
+  <!-- ═══════════════════════════════════════════════
+       DI DIAGRAM
+  ═══════════════════════════════════════════════ -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_SitPay">
+
+      <!-- ═══ POOL: XV POS ═══ -->
+      <bpmndi:BPMNShape id="Participant_XVPOS_di" bpmnElement="Participant_XVPOS" isHorizontal="true">
+        <omgdc:Bounds x="120" y="60" width="1580" height="630"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Cashier_di" bpmnElement="Lane_Cashier" isHorizontal="true">
+        <omgdc:Bounds x="150" y="60" width="1550" height="520"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_System_di" bpmnElement="Lane_System" isHorizontal="true">
+        <omgdc:Bounds x="150" y="580" width="1550" height="110"/>
+      </bpmndi:BPMNShape>
+
+      <!-- UC1: Activate row y=100 -->
+      <bpmndi:BPMNShape id="Start_Activate_di" bpmnElement="Start_Activate">
+        <omgdc:Bounds x="202" y="102" width="36" height="36"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="182" y="145" width="76" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ScanActivate_di" bpmnElement="Task_ScanActivate">
+        <omgdc:Bounds x="290" y="80" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_InquirySend_di" bpmnElement="Task_InquirySend">
+        <omgdc:Bounds x="460" y="80" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_InquiryRespRec_di" bpmnElement="Task_InquiryRespRec">
+        <omgdc:Bounds x="630" y="80" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AddAmount_di" bpmnElement="Task_AddAmount">
+        <omgdc:Bounds x="800" y="80" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ChargeSend_di" bpmnElement="Task_ChargeSend">
+        <omgdc:Bounds x="970" y="80" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ChargeRespRec_di" bpmnElement="Task_ChargeRespRec">
+        <omgdc:Bounds x="1140" y="80" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Activate_di" bpmnElement="End_Activate">
+        <omgdc:Bounds x="1322" y="102" width="36" height="36"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="1302" y="145" width="76" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- UC1 flows -->
+      <bpmndi:BPMNEdge id="Flow_A1_di" bpmnElement="Flow_A1"><omgdi:waypoint x="238" y="120"/><omgdi:waypoint x="290" y="120"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A2_di" bpmnElement="Flow_A2"><omgdi:waypoint x="410" y="120"/><omgdi:waypoint x="460" y="120"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A3_di" bpmnElement="Flow_A3"><omgdi:waypoint x="580" y="120"/><omgdi:waypoint x="630" y="120"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A4_di" bpmnElement="Flow_A4"><omgdi:waypoint x="750" y="120"/><omgdi:waypoint x="800" y="120"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A5_di" bpmnElement="Flow_A5"><omgdi:waypoint x="920" y="120"/><omgdi:waypoint x="970" y="120"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A6_di" bpmnElement="Flow_A6"><omgdi:waypoint x="1090" y="120"/><omgdi:waypoint x="1140" y="120"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A7_di" bpmnElement="Flow_A7"><omgdi:waypoint x="1260" y="120"/><omgdi:waypoint x="1322" y="120"/></bpmndi:BPMNEdge>
+
+      <!-- UC2+3: Payment row y=250 -->
+      <bpmndi:BPMNShape id="Start_Payment_di" bpmnElement="Start_Payment">
+        <omgdc:Bounds x="202" y="252" width="36" height="36"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="180" y="295" width="80" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AddArticles_di" bpmnElement="Task_AddArticles">
+        <omgdc:Bounds x="290" y="230" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SelectGiftCard_di" bpmnElement="Task_SelectGiftCard">
+        <omgdc:Bounds x="460" y="230" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ScanPayCard_di" bpmnElement="Task_ScanPayCard">
+        <omgdc:Bounds x="630" y="230" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PayInqSend_di" bpmnElement="Task_PayInqSend">
+        <omgdc:Bounds x="800" y="230" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PayInqRespRec_di" bpmnElement="Task_PayInqRespRec">
+        <omgdc:Bounds x="970" y="230" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RedeemSend_di" bpmnElement="Task_RedeemSend">
+        <omgdc:Bounds x="1140" y="230" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RedeemRespRec_di" bpmnElement="Task_RedeemRespRec">
+        <omgdc:Bounds x="1310" y="230" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_CancelPayment_di" bpmnElement="Gateway_CancelPayment" isMarkerVisible="true">
+        <omgdc:Bounds x="1485" y="245" width="50" height="50"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="1462" y="302" width="96" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <!-- cancel path goes down -->
+      <bpmndi:BPMNShape id="Task_UndoRedeemSend_di" bpmnElement="Task_UndoRedeemSend">
+        <omgdc:Bounds x="1460" y="370" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_UndoRedeemRespRec_di" bpmnElement="Task_UndoRedeemRespRec">
+        <omgdc:Bounds x="1310" y="370" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SelectOtherPayment_di" bpmnElement="Task_SelectOtherPayment">
+        <omgdc:Bounds x="1140" y="370" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_FinalizePayment_di" bpmnElement="Task_FinalizePayment">
+        <omgdc:Bounds x="970" y="370" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Payment_di" bpmnElement="End_Payment">
+        <omgdc:Bounds x="1322" y="472" width="36" height="36"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="1302" y="515" width="76" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- UC2+3 flows -->
+      <bpmndi:BPMNEdge id="Flow_P1_di" bpmnElement="Flow_P1"><omgdi:waypoint x="238" y="270"/><omgdi:waypoint x="290" y="270"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P2_di" bpmnElement="Flow_P2"><omgdi:waypoint x="410" y="270"/><omgdi:waypoint x="460" y="270"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P3_di" bpmnElement="Flow_P3"><omgdi:waypoint x="580" y="270"/><omgdi:waypoint x="630" y="270"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P4_di" bpmnElement="Flow_P4"><omgdi:waypoint x="750" y="270"/><omgdi:waypoint x="800" y="270"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P5_di" bpmnElement="Flow_P5"><omgdi:waypoint x="920" y="270"/><omgdi:waypoint x="970" y="270"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P6_di" bpmnElement="Flow_P6"><omgdi:waypoint x="1090" y="270"/><omgdi:waypoint x="1140" y="270"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P7_di" bpmnElement="Flow_P7"><omgdi:waypoint x="1260" y="270"/><omgdi:waypoint x="1310" y="270"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P8_di" bpmnElement="Flow_P8"><omgdi:waypoint x="1430" y="270"/><omgdi:waypoint x="1485" y="270"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P9_cancel_di" bpmnElement="Flow_P9_cancel">
+        <omgdi:waypoint x="1510" y="295"/><omgdi:waypoint x="1510" y="370"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="1516" y="325" width="22" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P9_ok_di" bpmnElement="Flow_P9_ok">
+        <omgdi:waypoint x="1510" y="245"/><omgdi:waypoint x="1510" y="220"/><omgdi:waypoint x="1030" y="220"/><omgdi:waypoint x="1030" y="370"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="1265" y="202" width="16" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P10_di" bpmnElement="Flow_P10"><omgdi:waypoint x="1460" y="410"/><omgdi:waypoint x="1430" y="410"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P11_di" bpmnElement="Flow_P11"><omgdi:waypoint x="1310" y="410"/><omgdi:waypoint x="1260" y="410"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P12_di" bpmnElement="Flow_P12"><omgdi:waypoint x="1140" y="410"/><omgdi:waypoint x="1090" y="410"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_P13_di" bpmnElement="Flow_P13">
+        <omgdi:waypoint x="1030" y="450"/><omgdi:waypoint x="1030" y="490"/><omgdi:waypoint x="1322" y="490"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- UC4: Balance Check row y=530 -->
+      <bpmndi:BPMNShape id="Start_BalCheck_di" bpmnElement="Start_BalCheck">
+        <omgdc:Bounds x="202" y="502" width="36" height="36"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="182" y="545" width="76" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ScanBalCard_di" bpmnElement="Task_ScanBalCard">
+        <omgdc:Bounds x="290" y="480" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_BalInqSend_di" bpmnElement="Task_BalInqSend">
+        <omgdc:Bounds x="460" y="480" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_BalInqRespRec_di" bpmnElement="Task_BalInqRespRec">
+        <omgdc:Bounds x="630" y="480" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ShowBalance_di" bpmnElement="Task_ShowBalance">
+        <omgdc:Bounds x="800" y="480" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_BalCheck_di" bpmnElement="End_BalCheck">
+        <omgdc:Bounds x="982" y="502" width="36" height="36"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="966" y="545" width="68" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_B1_di" bpmnElement="Flow_B1"><omgdi:waypoint x="238" y="520"/><omgdi:waypoint x="290" y="520"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_B2_di" bpmnElement="Flow_B2"><omgdi:waypoint x="410" y="520"/><omgdi:waypoint x="460" y="520"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_B3_di" bpmnElement="Flow_B3"><omgdi:waypoint x="580" y="520"/><omgdi:waypoint x="630" y="520"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_B4_di" bpmnElement="Flow_B4"><omgdi:waypoint x="750" y="520"/><omgdi:waypoint x="800" y="520"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_B5_di" bpmnElement="Flow_B5"><omgdi:waypoint x="920" y="520"/><omgdi:waypoint x="982" y="520"/></bpmndi:BPMNEdge>
+
+      <!-- EOD Batch row y=620 -->
+      <bpmndi:BPMNShape id="Start_EOD_di" bpmnElement="Start_EOD">
+        <omgdc:Bounds x="202" y="617" width="36" height="36"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="184" y="660" width="72" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_EODSend_di" bpmnElement="Task_EODSend">
+        <omgdc:Bounds x="290" y="595" width="150" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_EOD_di" bpmnElement="End_EOD">
+        <omgdc:Bounds x="502" y="617" width="36" height="36"/>
+        <bpmndi:BPMNLabel><omgdc:Bounds x="486" y="660" width="68" height="27"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_E1_di" bpmnElement="Flow_E1"><omgdi:waypoint x="238" y="635"/><omgdi:waypoint x="290" y="635"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_E2_di" bpmnElement="Flow_E2"><omgdi:waypoint x="440" y="635"/><omgdi:waypoint x="502" y="635"/></bpmndi:BPMNEdge>
+
+      <!-- ═══ POOL: Gift Card API / CPI ═══ -->
+      <bpmndi:BPMNShape id="Participant_GiftAPI_di" bpmnElement="Participant_GiftAPI" isHorizontal="true">
+        <omgdc:Bounds x="120" y="730" width="1580" height="260"/>
+      </bpmndi:BPMNShape>
+      <!-- Row 1: Inquiry tasks y=760 -->
+      <bpmndi:BPMNShape id="Task_InquiryReceive_di" bpmnElement="Task_InquiryReceive">
+        <omgdc:Bounds x="440" y="750" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_InquiryResp_di" bpmnElement="Task_InquiryResp">
+        <omgdc:Bounds x="610" y="750" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ChargeReceive_di" bpmnElement="Task_ChargeReceive">
+        <omgdc:Bounds x="950" y="750" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ChargeResp_di" bpmnElement="Task_ChargeResp">
+        <omgdc:Bounds x="1120" y="750" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Row 2: Payment/Cancel tasks y=880 -->
+      <bpmndi:BPMNShape id="Task_PayInqReceive_di" bpmnElement="Task_PayInqReceive">
+        <omgdc:Bounds x="780" y="870" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PayInqResp_di" bpmnElement="Task_PayInqResp">
+        <omgdc:Bounds x="950" y="870" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RedeemReceive_di" bpmnElement="Task_RedeemReceive">
+        <omgdc:Bounds x="1120" y="870" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RedeemResp_di" bpmnElement="Task_RedeemResp">
+        <omgdc:Bounds x="1290" y="870" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_UndoRedeemReceive_di" bpmnElement="Task_UndoRedeemReceive">
+        <omgdc:Bounds x="1460" y="870" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_UndoRedeemResp_di" bpmnElement="Task_UndoRedeemResp">
+        <omgdc:Bounds x="1460" y="750" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- Balance -->
+      <bpmndi:BPMNShape id="Task_BalInqReceive_di" bpmnElement="Task_BalInqReceive">
+        <omgdc:Bounds x="440" y="870" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_BalInqResp_di" bpmnElement="Task_BalInqResp">
+        <omgdc:Bounds x="610" y="870" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <!-- EOD -->
+      <bpmndi:BPMNShape id="Task_EODReceive_di" bpmnElement="Task_EODReceive">
+        <omgdc:Bounds x="290" y="750" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <!-- API internal flows -->
+      <bpmndi:BPMNEdge id="Flow_G1_di" bpmnElement="Flow_G1"><omgdi:waypoint x="560" y="790"/><omgdi:waypoint x="610" y="790"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G2_di" bpmnElement="Flow_G2"><omgdi:waypoint x="1070" y="790"/><omgdi:waypoint x="1120" y="790"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G3_di" bpmnElement="Flow_G3"><omgdi:waypoint x="900" y="910"/><omgdi:waypoint x="950" y="910"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G4_di" bpmnElement="Flow_G4"><omgdi:waypoint x="1240" y="910"/><omgdi:waypoint x="1290" y="910"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G5_di" bpmnElement="Flow_G5"><omgdi:waypoint x="1520" y="870"/><omgdi:waypoint x="1520" y="830"/></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_G6_di" bpmnElement="Flow_G6"><omgdi:waypoint x="560" y="910"/><omgdi:waypoint x="610" y="910"/></bpmndi:BPMNEdge>
+
+      <!-- ═══ POOL: SIT-Pay ═══ -->
+      <bpmndi:BPMNShape id="Participant_SitPay_di" bpmnElement="Participant_SitPay" isHorizontal="true">
+        <omgdc:Bounds x="120" y="1040" width="1580" height="260"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Accounts_di" bpmnElement="Lane_Accounts" isHorizontal="true">
+        <omgdc:Bounds x="150" y="1040" width="1550" height="130"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Transactions_di" bpmnElement="Lane_Transactions" isHorizontal="true">
+        <omgdc:Bounds x="150" y="1170" width="1550" height="130"/>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_SP_InquiryProcess_di" bpmnElement="Task_SP_InquiryProcess">
+        <omgdc:Bounds x="560" y="1060" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SP_BalProcess_di" bpmnElement="Task_SP_BalProcess">
+        <omgdc:Bounds x="700" y="1060" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SP_ChargeProcess_di" bpmnElement="Task_SP_ChargeProcess">
+        <omgdc:Bounds x="1090" y="1190" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SP_RedeemProcess_di" bpmnElement="Task_SP_RedeemProcess">
+        <omgdc:Bounds x="1260" y="1190" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_SP_CancelProcess_di" bpmnElement="Task_SP_CancelProcess">
+        <omgdc:Bounds x="1430" y="1190" width="120" height="80"/>
+      </bpmndi:BPMNShape>
+
+      <!-- ═══ MESSAGE FLOWS ═══ -->
+      <!-- Activate: Inquiry out/back -->
+      <bpmndi:BPMNEdge id="MF_InquiryOut_di" bpmnElement="MF_InquiryOut">
+        <omgdi:waypoint x="520" y="160"/><omgdi:waypoint x="520" y="730"/><omgdi:waypoint x="500" y="730"/><omgdi:waypoint x="500" y="750"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_InquiryBack_di" bpmnElement="MF_InquiryBack">
+        <omgdi:waypoint x="670" y="750"/><omgdi:waypoint x="670" y="730"/><omgdi:waypoint x="690" y="730"/><omgdi:waypoint x="690" y="160"/>
+      </bpmndi:BPMNEdge>
+      <!-- Activate: Charge out/back -->
+      <bpmndi:BPMNEdge id="MF_ChargeOut_di" bpmnElement="MF_ChargeOut">
+        <omgdi:waypoint x="1030" y="160"/><omgdi:waypoint x="1030" y="730"/><omgdi:waypoint x="1010" y="730"/><omgdi:waypoint x="1010" y="750"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_ChargeBack_di" bpmnElement="MF_ChargeBack">
+        <omgdi:waypoint x="1180" y="750"/><omgdi:waypoint x="1180" y="730"/><omgdi:waypoint x="1200" y="730"/><omgdi:waypoint x="1200" y="160"/>
+      </bpmndi:BPMNEdge>
+      <!-- Payment: Inquiry out/back -->
+      <bpmndi:BPMNEdge id="MF_PayInqOut_di" bpmnElement="MF_PayInqOut">
+        <omgdi:waypoint x="860" y="310"/><omgdi:waypoint x="860" y="870"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_PayInqBack_di" bpmnElement="MF_PayInqBack">
+        <omgdi:waypoint x="1010" y="870"/><omgdi:waypoint x="1010" y="730"/><omgdi:waypoint x="1030" y="730"/><omgdi:waypoint x="1030" y="310"/>
+      </bpmndi:BPMNEdge>
+      <!-- Payment: Redeem out/back -->
+      <bpmndi:BPMNEdge id="MF_RedeemOut_di" bpmnElement="MF_RedeemOut">
+        <omgdi:waypoint x="1200" y="310"/><omgdi:waypoint x="1200" y="730"/><omgdi:waypoint x="1180" y="730"/><omgdi:waypoint x="1180" y="870"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_RedeemBack_di" bpmnElement="MF_RedeemBack">
+        <omgdi:waypoint x="1350" y="870"/><omgdi:waypoint x="1350" y="730"/><omgdi:waypoint x="1370" y="730"/><omgdi:waypoint x="1370" y="310"/>
+      </bpmndi:BPMNEdge>
+      <!-- Cancel: UndoRedeem out/back -->
+      <bpmndi:BPMNEdge id="MF_UndoOut_di" bpmnElement="MF_UndoOut">
+        <omgdi:waypoint x="1520" y="370"/><omgdi:waypoint x="1520" y="870"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_UndoBack_di" bpmnElement="MF_UndoBack">
+        <omgdi:waypoint x="1520" y="750"/><omgdi:waypoint x="1520" y="730"/><omgdi:waypoint x="1370" y="730"/><omgdi:waypoint x="1370" y="450"/>
+      </bpmndi:BPMNEdge>
+      <!-- Balance: out/back -->
+      <bpmndi:BPMNEdge id="MF_BalOut_di" bpmnElement="MF_BalOut">
+        <omgdi:waypoint x="520" y="560"/><omgdi:waypoint x="520" y="730"/><omgdi:waypoint x="500" y="730"/><omgdi:waypoint x="500" y="870"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_BalBack_di" bpmnElement="MF_BalBack">
+        <omgdi:waypoint x="670" y="870"/><omgdi:waypoint x="670" y="730"/><omgdi:waypoint x="690" y="730"/><omgdi:waypoint x="690" y="560"/>
+      </bpmndi:BPMNEdge>
+      <!-- EOD -->
+      <bpmndi:BPMNEdge id="MF_EODOut_di" bpmnElement="MF_EODOut">
+        <omgdi:waypoint x="365" y="675"/><omgdi:waypoint x="365" y="750"/>
+      </bpmndi:BPMNEdge>
+
+
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
